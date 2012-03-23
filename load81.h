@@ -20,8 +20,10 @@ struct globalConfig {
     long long epoch;
     frameBuffer *fb;
     char *filename;
-    lua_State *L;
-    int luaerr; /* True if there was an error in the latest iteration. */
+
+    scheme *SC;
+    int scmerr; /* True if there was an error in the latest iteration. */
+
     /* Configuration */
     int width;
     int height;

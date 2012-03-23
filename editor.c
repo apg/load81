@@ -28,10 +28,10 @@ void editorUpdateSyntax(erow *row) {
     char *p;
     char *keywords[] = {
         /* Keywords */
-        "function","if","while","for","end","in","do","local","break",
-        "then","pairs","return",
-        /* Libs (ending with dots) will be marked as HL_LIB */
-        "math.","table.","string.","mouse.","keyboard.",NULL
+      "lambda", "quote", "define", "if", "begin", "set!", "let",
+      "let*", "letrec", "cond", "delay", "and", "or", "cons-stream",
+      "macro", "case", "else", "quasiquote", "unquote", 
+      "unquote-splicing", "=>", NULL
     };
 
     row->hl = realloc(row->hl,row->size);
@@ -47,7 +47,7 @@ void editorUpdateSyntax(erow *row) {
     prev_sep = 1; /* Tell the parser if 'i' points to start of word. */
     in_string = 0; /* Are we inside "" or '' ? */
     while(*p) {
-        if (prev_sep && *p == '-' && *(p+1) == '-') {
+        if (prev_sep && *p == ';') {
             /* From here to end is a comment */
             memset(row->hl+i,HL_COMMENT,row->size-i);
             return;

@@ -6,9 +6,7 @@
 #include <SDL_framerate.h>
 #include <SDL_image.h>
 #include <SDL_rotozoom.h>
-#include <lua.h>
-#include <lauxlib.h>
-#include <lualib.h>
+#include <scheme.h>
 
 #define FONT_WIDTH 16
 #define FONT_HEIGHT 16
