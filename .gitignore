@@ -1,6 +1,5 @@
 load81
-*.o
-lua/src/*.o
-lua/src/*.a
-lua/src/lua
-lua/src/luac
+tinyscheme/*.o
+tinyscheme/*.a
+tinyscheme/scheme
+tinyscheme/*.so
