@@ -6,7 +6,8 @@
 #include <SDL_framerate.h>
 #include <SDL_image.h>
 #include <SDL_rotozoom.h>
-#include <scheme.h>
+
+#include <scheme-private.h>
 
 #define FONT_WIDTH 16
 #define FONT_HEIGHT 16
@@ -37,8 +38,8 @@ void bfWriteChar(frameBuffer *fb, int xp, int yp, int c, int r, int g, int b, in
 void bfWriteString(frameBuffer *fb, int xp, int yp, const char *s, int len, int r, int g, int b, int alpha);
 
 /* Sprites */
-void spriteBlit(frameBuffer *fb, void *sprite, int x, int y, int angle, int aa);
+/*void spriteBlit(frameBuffer *fb, void *sprite, int x, int y, int angle, int aa);
 void *spriteLoad(lua_State *L, const char *filename);
-void initSpriteEngine(lua_State *L);
+void initSpriteEngine(lua_State *L);*/
 
 #endif /* FRAMEBUFFER_H */

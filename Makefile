@@ -1,5 +1,5 @@
 PKGS=sdl SDL_gfx SDL_image
-CFLAGS=-O2 -Wall -W -Itinyscheme `pkg-config --cflags $(PKGS)`
+CFLAGS=-O2 -Wall -W -Itinyscheme `pkg-config --cflags $(PKGS)` -DUSE_INTERFACE=1
 LDLIBS=tinyscheme/libtinyscheme.a -lm `pkg-config --libs $(PKGS)`
 
 all: load81 
@@ -10,7 +10,7 @@ framebuffer.o: framebuffer.c framebuffer.h bitfont.h
 load81.o: load81.c framebuffer.h editor.h load81.h
 
 tinyscheme/libtinyscheme.a:
-	-(cd tinyscheme && $(MAKE))
+	-(cd tinyscheme && $(MAKE) libtinyscheme.a)
 
 clean:
 	rm -f load81 *.o
