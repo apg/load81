@@ -3,3 +3,4 @@ tinyscheme/*.o
 tinyscheme/*.a
 tinyscheme/scheme
 tinyscheme/*.so
+*.o
