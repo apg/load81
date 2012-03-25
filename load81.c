@@ -233,7 +233,7 @@ pointer lineBinding(scheme *sc, pointer args) {
 
 pointer textBinding(scheme *sc, pointer args) {
   int x,y;
-  const char *s;
+  char *s;
   size_t len;
   pointer tmp;
 
@@ -251,7 +251,10 @@ pointer textBinding(scheme *sc, pointer args) {
   len = SCM_STRLENGTH(tmp);
   s = SCM_STRVALUE(tmp);
 
+  printf("\ns is %x\n", s);
+
   if (!s) return 0;
+  printf("Drawing string!\n");
   bfWriteString(l81.fb,x,y,s,len,l81.r,l81.g,l81.b,l81.alpha);
   return sc->NIL;
 }
@@ -280,10 +283,14 @@ pointer backgroundBinding(scheme *sc, pointer args) {
 
   pointer _tmpp;
 
+  printf("In background--checking length\n");
+
   if (SCM_LLEN(args) != 3) {
-    programError("arity error: text requires 4 arguments");
+    programError("arity error: text requires 3 arguments");
     return sc->NIL;
   }
+
+  printf("In background--checked length\n");
 
   SCM_POPINT(r, args, "type error: first argument to background must be numeric", 1);
   SCM_POPINT(g, args, "type error: second argument to background must be numeric", 1);
@@ -369,12 +376,14 @@ pointer getpixelBinding(scheme *sc, pointer args) {
 
 void setup(void) {
   // obvs need some error checking here
-  scheme_apply0(l81.SC, "setup");
+  l81.SC->vptr->load_string(l81.SC, "(setup)");
+  printf("returning from setup\n");
 }
 
 void draw(void) {
   // obvs need some error checking here
-  scheme_apply0(l81.SC, "draw");
+  l81.SC->vptr->load_string(l81.SC, "(draw)");
+  printf("returning from draw\n");
 }
 
 /* Update the keyboard.pressed and mouse.pressed Lua table. */
@@ -432,6 +441,8 @@ void showFPS(void) {
 int processSdlEvents(void) {
   SDL_Event event;
 
+  printf("processing SdlEvents\n");
+
   resetEvents();
   while (SDL_PollEvent(&event)) {
     switch(event.type) {
@@ -474,10 +485,12 @@ int processSdlEvents(void) {
 
   /* Call the setup function, only the first time. */
   if (l81.epoch == 0) {
+    printf("Calling setup...\n");
     setup();
     if (l81.scmerr) return l81.scmerr;
   }
   /* Call the draw function at every iteration.  */
+  printf("Calling draw...\n");
   draw();
   l81.epoch++;
   /* Refresh the screen */
@@ -512,8 +525,8 @@ int loadProgram(void) {
   int buflen;
   char *buf = editorRowsToString(&buflen);
 
+  printf("buffer contents: \n%s\n", buf);
   l81.SC->vptr->load_string(l81.SC, buf);
-
   l81.scmerr = 0;
   editorClearError();
   return 0;
@@ -564,9 +577,14 @@ void resetProgram(void) {
   l81.epoch = 0;
   if (l81.SC) scheme_deinit(l81.SC);
   l81.SC = scheme_init_new();
+  l81.SC->tracing = 1;
+
+  scheme_set_input_port_file(l81.SC, stdin);
+  scheme_set_output_port_file(l81.SC, stdout);
 
   // TODO: need to load the scheme init.scm file or else this is useless
-  l81.SC->vptr->load_string(l81.SC, initscript);
+  //  scheme_load_string(l81.SC, initscript);
+  scheme_load_string(l81.SC, "(display 9876543210)(newline)");
 
   setNumber("*width*",l81.width);
   setNumber("*height*",l81.height);
@@ -584,7 +602,7 @@ void resetProgram(void) {
     l81.SC->vptr->scheme_define(l81.SC,
                                 l81.SC->global_env,
                                 l81.SC->vptr->mk_symbol(l81.SC, bindings[i].name),
-                                bindings[i].func);
+                                l81.SC->vptr->mk_foreign_func(l81.SC, bindings[i].func));
   }
 
   // TODO: sprite engine
@@ -659,7 +677,9 @@ int main(int argc, char **argv) {
   initEditor(l81.fb,30,30,30,30);
   editorOpen(l81.filename);
   while(1) {
+    printf("initializing interpreter...\n");
     resetProgram();
+    printf("loading program...\n");
     loadProgram();
     if (!l81.scmerr) {
       SDL_setFramerate(&l81.fb->fps_mgr,l81.fps);
