@@ -1,8 +1,11 @@
 (define (setup)
-  (background 0 0 0))
+  #f)
 
 (define (draw)
   (background 0 0 0)
   (fill 100 50 250 1)
+  (text 20 (- *height* 40) "Please, enter this window with your mouse pointer.")
   (fill 255 0 0 1)
-  (rect *mouse-x* *mouse-y* 10 20))
+  (text *mouse-x* *mouse-y* "Hello world!")
+  (fill 200 200 200 1)
+  (text 0 0 (string-append "Mouse is at x:" (number->string *mouse-x*) " y:" (number->string *mouse-y*))))

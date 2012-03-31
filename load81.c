@@ -48,6 +48,28 @@ struct binding {
 
 /* =========================== Utility functions ============================ */
 
+char *slurpFile(FILE *in) {
+  long size;
+  long i = 0;
+  char *buf;
+
+  fseek(in, 0, SEEK_END);
+  size = ftell(in);
+  rewind(in);
+
+  buf = malloc(sizeof(*buf) * size);
+  if (!buf) {
+    perror("malloc");
+    exit(1);
+  }
+
+  while (!feof(in)) {
+    buf[i] = fgetc(in);
+    i++;
+  }
+  return buf;
+}
+
 /* Return the UNIX time in microseconds */
 long long ustime(void) {
   struct timeval tv;
@@ -235,7 +257,6 @@ pointer textBinding(scheme *sc, pointer args) {
   int x,y;
   char *s;
   size_t len;
-  pointer tmp;
 
   pointer _tmpp;
 
@@ -246,16 +267,16 @@ pointer textBinding(scheme *sc, pointer args) {
 
   SCM_POPINT(x, args, "type error: first argument to line must be numeric", 1);
   SCM_POPINT(y, args, "type error: second argument to line must be numeric", 1);
-  SCM_POPSTR(tmp, args, "type error: third argument to line must be a string", 0);
-
-  len = SCM_STRLENGTH(tmp);
-  s = SCM_STRVALUE(tmp);
-
-  printf("\ns is %x\n", s);
+  SCM_POPSTR(s, args, "type error: third argument to line must be a string", 0);
 
   if (!s) return 0;
+
+  s = strdup(s);
+  len = strlen(s);
+
   printf("Drawing string!\n");
   bfWriteString(l81.fb,x,y,s,len,l81.r,l81.g,l81.b,l81.alpha);
+  free(s);
   return sc->NIL;
 }
 
@@ -374,39 +395,24 @@ pointer getpixelBinding(scheme *sc, pointer args) {
 
 /* ========================== Events processing ============================= */
 
+// TODO: this isn't the most efficient way to pull this off
 void setup(void) {
-  // obvs need some error checking here
-  l81.SC->vptr->load_string(l81.SC, "(setup)");
-  printf("returning from setup\n");
+  l81.SC->vptr->load_string(l81.SC, "(if (defined? 'setup) (setup))");
 }
 
 void draw(void) {
   // obvs need some error checking here
-  l81.SC->vptr->load_string(l81.SC, "(draw)");
-  printf("returning from draw\n");
-}
-
-/* Update the keyboard.pressed and mouse.pressed Lua table. */
-void updatePressedState(char *object, char *keyname, int pressed) {
-  //  lua_getglobal(l81.L,object);         /* $keyboard */
-  //lua_pushstring(l81.L,"pressed");     /* $keyboard, "pressed" */
-  //lua_gettable(l81.L,-2);              /* $keyboard, $pressed */
-  //lua_pushstring(l81.L,keyname);       /* $keyboard, $pressed, "keyname" */
-  //if (pressed) {
-  //  lua_pushboolean(l81.L,1);        /* $k, $pressed, "keyname", true */
-  //} else {
-  //  lua_pushnil(l81.L);              /* $k, $pressed, "keyname", nil */
-  //}
-  //lua_settable(l81.L,-3);              /* $k, $pressed */
-  //lua_pop(l81.L,2);
+  l81.SC->vptr->load_string(l81.SC, "(if (defined? 'draw) (draw))");
 }
 
 void keyboardEvent(SDL_KeyboardEvent *key, int down) {
   char *keyname = SDL_GetKeyName(key->keysym.sym);
+  char buf[1024];
 
-  setTableFieldString("keyboard","state",down ? "down" : "up");
-  setTableFieldString("keyboard","key",keyname);
-  updatePressedState("keyboard",keyname,down);
+  snprintf(buf, 1024, "(begin (set! *keyboard-state* '%s)"\
+           "(set! *keyboard-key* (cons 'key-%s *keyboard-key*)))",
+           down ? "down": "up", keyname);
+  l81.SC->vptr->load_string(l81.SC, "(if (defined? 'draw) (draw))");
 }
 
 void mouseMovedEvent(int x, int y, int xrel, int yrel) {
@@ -417,15 +423,20 @@ void mouseMovedEvent(int x, int y, int xrel, int yrel) {
 }
 
 void mouseButtonEvent(int button, int pressed) {
+  char buf[128];
   char buttonname[32];
     
   snprintf(buttonname,sizeof(buttonname),"%d",button);
-  updatePressedState("mouse",buttonname,pressed);
+  snprintf(buf, 128, "(set! *mouse-%s-pressed* %s)", buttonname, pressed ? "#t": "#f");
+  
+  l81.SC->vptr->load_string(l81.SC, buf);
 }
 
 void resetEvents(void) {
-  setTableFieldString("keyboard","state","none");
-  setTableFieldString("keyboard","key","");
+  char *buf = "(begin "\
+    "(set! *keyboard-state* 'none)" \
+    "(set! *keyboard-key* '()))";
+  l81.SC->vptr->load_string(l81.SC, buf);  
 }
 
 void showFPS(void) {
@@ -440,8 +451,6 @@ void showFPS(void) {
 
 int processSdlEvents(void) {
   SDL_Event event;
-
-  printf("processing SdlEvents\n");
 
   resetEvents();
   while (SDL_PollEvent(&event)) {
@@ -541,7 +550,10 @@ void initScreen(void) {
 void resetProgram(void) {
   FILE *initfile;
   int i;
+  char *initinit;
   char *initscript = "(begin" \
+    "(define *keyboard-state* 'none)" \
+    "(define *keyboard-key* '())" \
     "(define *mouse-1-pressed* #f)" \
     "(define *mouse-2-pressed* #f)" \
     "(define *mouse-3-pressed* #f)" \
@@ -554,6 +566,7 @@ void resetProgram(void) {
     "(define *mouse-y* 0)" \
     "(define *mouse-xrel* 0)" \
     "(define *mouse-yrel* 0))";
+
 
   // TODO: figure out how to deal with keyboard events
 
@@ -577,21 +590,22 @@ void resetProgram(void) {
   l81.epoch = 0;
   if (l81.SC) scheme_deinit(l81.SC);
   l81.SC = scheme_init_new();
-  l81.SC->tracing = 1;
+  l81.SC->tracing = 0;
 
+  // TODO: need to obviously make this a *bit* more robust
+  initfile = fopen("/home/me/Devel/load81/tinyscheme/init.scm", "r");
+  initinit = slurpFile(initfile);
+  fclose(initfile);
   scheme_set_input_port_file(l81.SC, stdin);
   scheme_set_output_port_file(l81.SC, stdout);
 
-  // TODO: need to load the scheme init.scm file or else this is useless
-  //  scheme_load_string(l81.SC, initscript);
-  scheme_load_string(l81.SC, "(display 9876543210)(newline)");
+
+  scheme_load_string(l81.SC, initinit);
+  free(initinit);
+  scheme_load_string(l81.SC, initscript);
 
   setNumber("*width*",l81.width);
   setNumber("*height*",l81.height);
-
-  /*    luaL_loadbuffer(l81.L,initscript,strlen(initscript),"initscript");
-        lua_pcall(l81.L,0,0,0);
-  */
 
 
   /* Make sure that mouse parameters make sense even before the first
@@ -611,6 +625,7 @@ void resetProgram(void) {
   /* Start with a black screen */
   fillBackground(l81.fb,0,0,0);
 }
+
 
 /* ================================= Main ================================== */
 
